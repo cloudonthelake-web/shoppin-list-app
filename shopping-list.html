@@ -173,16 +173,17 @@
     <button class="clear-btn" onclick="clearChecked()">완료 항목 삭제</button>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script>
     const SUPABASE_URL = 'https://aoeiqytzzjybyhukthlb.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvZWlxeXR6emp5YnlodWt0aGxiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzU0NTYsImV4cCI6MjA5MDcxMTQ1Nn0.Hoa4hn6TizbmnlDnTNxFEMEg0k6k1TmakFIa5Spbhr4';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { createClient } = supabase;
+    const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let items = [];
 
     async function loadItems() {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('shopping_items')
         .select('*')
         .order('created_at', { ascending: true });
@@ -228,12 +229,12 @@
       const input = document.getElementById('itemInput');
       const text = input.value.trim();
       if (!text) return;
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from('shopping_items')
         .insert({ text, checked: false })
         .select()
         .single();
-      if (error) { console.error(error); return; }
+      if (error) { alert('추가 실패: ' + error.message); return; }
       items.push(data);
       render();
       input.value = '';
@@ -244,7 +245,7 @@
       const item = items.find(i => i.id === id);
       if (!item) return;
       const newChecked = !item.checked;
-      const { error } = await supabase
+      const { error } = await db
         .from('shopping_items')
         .update({ checked: newChecked })
         .eq('id', id);
@@ -254,7 +255,7 @@
     }
 
     async function deleteItem(id) {
-      const { error } = await supabase
+      const { error } = await db
         .from('shopping_items')
         .delete()
         .eq('id', id);
@@ -264,7 +265,7 @@
     }
 
     async function clearChecked() {
-      const { error } = await supabase
+      const { error } = await db
         .from('shopping_items')
         .delete()
         .eq('checked', true);
