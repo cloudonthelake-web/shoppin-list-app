@@ -173,11 +173,22 @@
     <button class="clear-btn" onclick="clearChecked()">완료 항목 삭제</button>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-    let items = JSON.parse(localStorage.getItem('shoppingList') || '[]');
+    const SUPABASE_URL = 'https://aoeiqytzzjybyhukthlb.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvZWlxeXR6emp5YnlodWt0aGxiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzU0NTYsImV4cCI6MjA5MDcxMTQ1Nn0.Hoa4hn6TizbmnlDnTNxFEMEg0k6k1TmakFIa5Spbhr4';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    function save() {
-      localStorage.setItem('shoppingList', JSON.stringify(items));
+    let items = [];
+
+    async function loadItems() {
+      const { data, error } = await supabase
+        .from('shopping_items')
+        .select('*')
+        .order('created_at', { ascending: true });
+      if (error) { console.error(error); return; }
+      items = data;
+      render();
     }
 
     function render() {
@@ -195,14 +206,14 @@
         const done = items.filter(i => i.checked).length;
         stats.textContent = `${done} / ${items.length} 완료`;
 
-        items.forEach((item, idx) => {
+        items.forEach(item => {
           const li = document.createElement('li');
           if (item.checked) li.classList.add('checked');
 
           li.innerHTML = `
-            <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleItem(${idx})" />
+            <input type="checkbox" ${item.checked ? 'checked' : ''} onchange="toggleItem('${item.id}')" />
             <span class="item-text">${escapeHtml(item.text)}</span>
-            <button class="delete-btn" onclick="deleteItem(${idx})" title="삭제">✕</button>
+            <button class="delete-btn" onclick="deleteItem('${item.id}')" title="삭제">✕</button>
           `;
           list.appendChild(li);
         });
@@ -213,32 +224,52 @@
       return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
-    function addItem() {
+    async function addItem() {
       const input = document.getElementById('itemInput');
       const text = input.value.trim();
       if (!text) return;
-      items.push({ text, checked: false });
-      save();
+      const { data, error } = await supabase
+        .from('shopping_items')
+        .insert({ text, checked: false })
+        .select()
+        .single();
+      if (error) { console.error(error); return; }
+      items.push(data);
       render();
       input.value = '';
       input.focus();
     }
 
-    function toggleItem(idx) {
-      items[idx].checked = !items[idx].checked;
-      save();
+    async function toggleItem(id) {
+      const item = items.find(i => i.id === id);
+      if (!item) return;
+      const newChecked = !item.checked;
+      const { error } = await supabase
+        .from('shopping_items')
+        .update({ checked: newChecked })
+        .eq('id', id);
+      if (error) { console.error(error); return; }
+      item.checked = newChecked;
       render();
     }
 
-    function deleteItem(idx) {
-      items.splice(idx, 1);
-      save();
+    async function deleteItem(id) {
+      const { error } = await supabase
+        .from('shopping_items')
+        .delete()
+        .eq('id', id);
+      if (error) { console.error(error); return; }
+      items = items.filter(i => i.id !== id);
       render();
     }
 
-    function clearChecked() {
+    async function clearChecked() {
+      const { error } = await supabase
+        .from('shopping_items')
+        .delete()
+        .eq('checked', true);
+      if (error) { console.error(error); return; }
       items = items.filter(i => !i.checked);
-      save();
       render();
     }
 
@@ -246,7 +277,7 @@
       if (e.key === 'Enter') addItem();
     });
 
-    render();
+    loadItems();
   </script>
 </body>
 </html>
